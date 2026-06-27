@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot Ferrari 2do — Control</title>
+  <meta name="description" content="Panel de control web para Robot Ferrari 2do con joystick virtual, audio y consola." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════
+       TOKENS DE DISEÑO
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg-deep:       #060609;
+      --bg-panel:      rgba(14, 14, 22, 0.85);
+      --bg-card:       rgba(20, 20, 32, 0.9);
+      --ferrari-red:   #e8002d;
+      --ferrari-dark:  #9a001e;
+      --accent-gold:   #ffd700;
+      --accent-cyan:   #00d4ff;
+      --text-primary:  #f0f0f8;
+      --text-dim:      #8888aa;
+      --border:        rgba(232, 0, 45, 0.25);
+      --border-active: rgba(232, 0, 45, 0.7);
+      --shadow-red:    0 0 20px rgba(232, 0, 45, 0.4);
+      --shadow-cyan:   0 0 20px rgba(0, 212, 255, 0.35);
+      --glow-red:      0 0 40px rgba(232, 0, 45, 0.6);
+      --radius:        12px;
+      --radius-lg:     20px;
+    }
+
+    /* ═══════════════════════════════════════════
+       BASE
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Fondo animado */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 40% at 15% 0%,   rgba(232,0,45,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 85% 100%, rgba(0,212,255,0.07) 0%, transparent 60%),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 60px,
+          rgba(232,0,45,0.025) 60px,
+          rgba(232,0,45,0.025) 61px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT
+    ═══════════════════════════════════════════ */
+    .app-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-red);
+    }
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: var(--ferrari-red);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: var(--shadow-red);
+    }
+
+    .logo-text h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      font-weight: 900;
+      color: var(--text-primary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .logo-text p {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-top: 1px;
+    }
+
+    /* BT status chip */
+    #bt-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      font-weight: 600;
+      transition: all .3s;
+      font-family: 'Orbitron', sans-serif;
+    }
+    #bt-status .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #555;
+      transition: all .3s;
+    }
+    #bt-status.connected .dot { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+    #bt-status.connecting .dot { background: var(--accent-gold); animation: pulse-dot 1s infinite; }
+    #bt-status.disconnected .dot { background: var(--ferrari-red); }
+
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* Grid principal */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ═══════════════════════════════════════════
+       TARJETAS (GLASSMORPHISM)
+    ═══════════════════════════════════════════ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(16px);
+      padding: 18px;
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .card:hover { border-color: var(--border-active); }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .card-header .icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .card-header h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--ferrari-red);
+    }
+
+    /* ═══════════════════════════════════════════
+       PANEL CONEXIÓN
+    ═══════════════════════════════════════════ */
+    .connect-card {
+      grid-column: 1 / -1;
+    }
+
+    .connect-body {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .port-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .port-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    select#baud-rate {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      padding: 7px 12px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      cursor: pointer;
+      flex: 1;
+    }
+    select#baud-rate:focus { border-color: var(--ferrari-red); }
+
+    .info-box {
+      flex: 1;
+      min-width: 200px;
+      background: rgba(0,212,255,0.06);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+    .info-box strong { color: var(--accent-cyan); }
+
+    /* ═══════════════════════════════════════════
+       BOTONES
+    ═══════════════════════════════════════════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 22px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: all .2s;
+      text-transform: uppercase;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .btn:active::after { opacity: 0.08; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--ferrari-red), var(--ferrari-dark));
+      color: white;
+      box-shadow: var(--shadow-red);
+    }
+    .btn-primary:hover { box-shadow: var(--glow-red); transform: translateY(-1px); }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-active);
+      color: var(--ferrari-red);
+    }
+    .btn-outline:hover { background: rgba(232,0,45,0.1); }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text-dim);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+    .btn-cyan {
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,150,200,0.2));
+      border: 1px solid rgba(0,212,255,0.4);
+      color: var(--accent-cyan);
+    }
+    .btn-cyan:hover { box-shadow: var(--shadow-cyan); background: rgba(0,212,255,0.25); }
+
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
+
+    /* ═══════════════════════════════════════════
+       JOYSTICK
+    ═══════════════════════════════════════════ */
+    .joystick-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .dpad {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+      user-select: none;
+    }
+    .dpad-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .dpad-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      background: radial-gradient(circle, rgba(40,40,60,0.9), rgba(20,20,30,0.95));
+      border: 2px solid var(--ferrari-red);
+      color: var(--ferrari-red);
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-red);
+      transition: all 0.1s;
+      outline: none;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .dpad-btn:active, .dpad-btn.active {
+      background: var(--ferrari-red);
+      color: white;
+      box-shadow: var(--glow-red);
+      transform: scale(0.95);
+    }
+    .dpad-center {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    /* Indicador dirección bajo el joystick */
+    .direction-display {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dir-badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--ferrari-red);
+      min-width: 36px;
+      text-align: center;
+      text-shadow: var(--shadow-red);
+      transition: all .1s;
+    }
+
+    .dir-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    /* Velocidad slider */
+    .speed-wrap {
+      margin-top: 14px;
+      width: 100%;
+    }
+    .speed-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+    .speed-label span:last-child {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--ferrari-red);
+      font-weight: 700;
+    }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--ferrari-red);
+      height: 4px;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    /* Modo línea toggle */
+    .mode-toggle-wrap {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px; height: 24px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 24px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: .3s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      top: 2px; left: 2px;
+      transition: .3s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: rgba(232,0,45,0.3); border-color: var(--ferrari-red); }
+    .toggle-switch input:checked + .toggle-slider::before { background: var(--ferrari-red); transform: translateX(20px); box-shadow: var(--shadow-red); }
+
+    /* ═══════════════════════════════════════════
+       PANEL AUDIO
+    ═══════════════════════════════════════════ */
+    .audio-card { grid-row: 1; }
+
+    .track-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      background: rgba(0,0,0,0.3);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .track-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: var(--ferrari-red);
+      line-height: 1;
+      text-shadow: var(--shadow-red);
+    }
+
+    .track-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      margin-top: 4px;
+    }
+
+    .audio-waveform {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 20px;
+      margin: 8px 0;
+    }
+
+    .wave-bar {
+      width: 3px;
+      background: var(--ferrari-red);
+      border-radius: 2px;
+      opacity: 0.5;
+      animation: wave-idle 2s ease-in-out infinite;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0s;    height: 6px;  }
+    .wave-bar:nth-child(2) { animation-delay: 0.1s;  height: 10px; }
+    .wave-bar:nth-child(3) { animation-delay: 0.2s;  height: 14px; }
+    .wave-bar:nth-child(4) { animation-delay: 0.3s;  height: 10px; }
+    .wave-bar:nth-child(5) { animation-delay: 0.4s;  height: 6px;  }
+
+    @keyframes wave-idle { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(0.4)} }
+    .playing .wave-bar   { animation: wave-play 0.5s ease-in-out infinite; opacity: 1; }
+    .playing .wave-bar:nth-child(1) { animation-delay: 0s;    }
+    .playing .wave-bar:nth-child(2) { animation-delay: 0.1s;  }
+    .playing .wave-bar:nth-child(3) { animation-delay: 0.15s; }
+    .playing .wave-bar:nth-child(4) { animation-delay: 0.1s;  }
+    .playing .wave-bar:nth-child(5) { animation-delay: 0.05s; }
+    @keyframes wave-play { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1.2)} }
+
+    .audio-controls {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-audio {
+      padding: 12px 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .btn-audio:hover { background: rgba(232,0,45,0.1); border-color: var(--border-active); }
+    .btn-audio.play { background: linear-gradient(135deg, var(--ferrari-red), var(--ferrari-dark)); border-color: var(--ferrari-red); box-shadow: var(--shadow-red); font-size: 1.4rem; }
+    .btn-audio.play:hover { box-shadow: var(--glow-red); }
+    .btn-audio:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ═══════════════════════════════════════════
+       PANEL SENSORES
+    ═══════════════════════════════════════════ */
+    .sensors-card { }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .sensor-item {
+      padding: 12px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color .3s, box-shadow .3s;
+    }
+
+    .sensor-item.alert { border-color: var(--ferrari-red); box-shadow: var(--shadow-red); }
+    .sensor-item.alert-cyan { border-color: var(--accent-cyan); box-shadow: var(--shadow-cyan); }
+
+    .sensor-icon { font-size: 1.4rem; }
+
+    .sensor-name {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .sensor-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .sensor-item.alert .sensor-value { color: var(--ferrari-red); }
+    .sensor-item.alert-cyan .sensor-value { color: var(--accent-cyan); }
+
+    /* ═══════════════════════════════════════════
+       PANEL IA
+    ═══════════════════════════════════════════ */
+    .ia-card { }
+
+    .ia-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-ia {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all .2s;
+      text-align: left;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .btn-ia .ia-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .btn-ia .ia-text { display: flex; flex-direction: column; gap: 1px; }
+    .btn-ia .ia-cmd  { font-size: 0.65rem; color: var(--text-dim); letter-spacing: 1px; font-family: 'Orbitron', sans-serif; }
+
+    .btn-ia:hover { background: rgba(232,0,45,0.08); border-color: var(--border-active); transform: translateX(3px); }
+    .btn-ia:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+    /* ═══════════════════════════════════════════
+       CONSOLA
+    ═══════════════════════════════════════════ */
+    .console-card { grid-column: 1 / -1; }
+
+    .console-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .console-toolbar h2 { margin-right: auto; }
+
+    #console-output {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      height: 180px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      scroll-behavior: smooth;
+    }
+
+    .log-line { display: flex; gap: 8px; }
+    .log-time { color: var(--text-dim); flex-shrink: 0; }
+    .log-msg  { color: var(--text-primary); }
+    .log-msg.warn  { color: var(--ferrari-red); }
+    .log-msg.ok    { color: #00ff88; }
+    .log-msg.cyan  { color: var(--accent-cyan); }
+    .log-msg.gold  { color: var(--accent-gold); }
+    .log-msg.send  { color: #aa88ff; }
+
+    #console-output::-webkit-scrollbar { width: 4px; }
+    #console-output::-webkit-scrollbar-track { background: transparent; }
+    #console-output::-webkit-scrollbar-thumb { background: var(--border-active); border-radius: 2px; }
+
+    /* Input consola */
+    .console-input-wrap {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #console-input {
+      flex: 1;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    #console-input:focus { border-color: var(--ferrari-red); }
+    #console-input::placeholder { color: var(--text-dim); }
+
+    /* ═══════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════ */
+    footer {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      padding: 8px;
+      letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════
+       OVERLAY "SIN SERIAL API"
+    ═══════════════════════════════════════════ */
+    #no-serial-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(6,6,9,0.96);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    #no-serial-overlay .big-icon { font-size: 4rem; }
+    #no-serial-overlay h2 { font-family: 'Orbitron', sans-serif; color: var(--ferrari-red); font-size: 1.1rem; }
+    #no-serial-overlay p { color: var(--text-dim); font-size: 0.9rem; max-width: 420px; line-height: 1.6; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .joystick-outer { width: 180px; height: 180px; }
+      #joystick-knob  { width: 56px; height: 56px; }
+      .main-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Overlay sin Web Serial -->
+<div id="no-serial-overlay">
+  <div class="big-icon">⚠️</div>
+  <h2>NAVEGADOR NO COMPATIBLE</h2>
+  <p>
+    Esta app usa la <strong>Web Serial API</strong> para conectarse al HC-05.<br />
+    Necesitás <strong>Google Chrome</strong> o <strong>Microsoft Edge</strong> en escritorio.<br /><br />
+    Abrí este archivo en Chrome (versión 89+).
+  </p>
+</div>
+
+<div class="app-wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-wrap">
+      <div class="logo-icon">🏎</div>
+      <div class="logo-text">
+        <h1>Ferrari 2do</h1>
+        <p>ROBOT CONTROL PANEL</p>
+      </div>
+    </div>
+    <div id="bt-status" class="disconnected">
+      <span class="dot"></span>
+      <span id="bt-label">DESCONECTADO</span>
+    </div>
+  </header>
+
+  <!-- CONEXIÓN -->
+  <div class="card connect-card">
+    <div class="card-header">
+      <span class="icon">🔗</span>
+      <h2>Conexión Serial (HC-05)</h2>
+    </div>
+    <div class="connect-body">
+      <div class="port-select-wrap">
+        <span class="port-label">BAUD:</span>
+        <select id="baud-rate">
+          <option value="9600" selected>9600</option>
+          <option value="38400">38400</option>
+          <option value="115200">115200</option>
+        </select>
+      </div>
+      <div class="info-box">
+        <strong>Instrucciones:</strong> Emparejá el HC-05 en tu PC → Aparece como "COM#" →
+        Hacé click en Conectar y seleccioná ese puerto.
+      </div>
+      <button id="btn-connect" class="btn btn-primary">🔌 CONECTAR</button>
+      <button id="btn-disconnect" class="btn btn-outline" disabled>DESCONECTAR</button>
+    </div>
+  </div>
+
+  <!-- GRID PRINCIPAL -->
+  <div class="main-grid">
+
+    <!-- JOYSTICK -->
+    <div class="card joystick-card">
+      <div class="card-header">
+        <span class="icon">🕹️</span>
+        <h2>Joystick</h2>
+      </div>
+
+      <div id="dpad-container" class="dpad">
+        <div class="dpad-row">
+          <button class="dpad-btn" data-dir="F">▲</button>
+        </div>
+        <div class="dpad-row">
+          <button class="dpad-btn" data-dir="L">◀</button>
+          <div class="dpad-center">🏎️</div>
+          <button class="dpad-btn" data-dir="R">▶</button>
+        </div>
+        <div class="dpad-row">
+          <button class="dpad-btn" data-dir="B">▼</button>
+        </div>
+      </div>
+
+      <div class="direction-display">
+        <div class="dir-badge" id="dir-display">—</div>
+        <div class="dir-label">DIRECCIÓN ACTUAL</div>
+      </div>
+
+      <div class="speed-wrap">
+        <div class="speed-label">
+          <span>VELOCIDAD</span>
+          <span id="speed-val">150</span>
+        </div>
+        <input type="range" id="speed-slider" min="50" max="200" value="150" />
+      </div>
+
+      <div class="speed-wrap" style="margin-top: 10px;">
+        <div class="speed-label">
+          <span>CORRECCIÓN (Derrape)</span>
+          <span id="corr-val">-55</span>
+        </div>
+        <input type="range" id="corr-slider" min="-100" max="100" value="-55" />
+      </div>
+
+      <div class="mode-toggle-wrap">
+        <label class="toggle-switch">
+          <input type="checkbox" id="line-mode-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span>Modo línea (TCRT)</span>
+      </div>
+    </div>
+
+    <!-- AUDIO -->
+    <div class="card audio-card">
+      <div class="card-header">
+        <span class="icon">🎵</span>
+        <h2>Reproductor Audio</h2>
+      </div>
+
+      <div class="track-display">
+        <div class="track-num" id="track-num-display">01</div>
+        <div class="track-label">TRACK ACTUAL</div>
+        <div class="audio-waveform" id="waveform">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+      </div>
+
+      <div class="audio-controls">
+        <button id="btn-prev" class="btn-audio" disabled title="Track Anterior (V)">⏮</button>
+        <button id="btn-play" class="btn-audio play" disabled title="Play/Stop (P/X)">▶</button>
+        <button id="btn-next" class="btn-audio" disabled title="Track Siguiente (W)">⏭</button>
+      </div>
+
+      <div class="speed-wrap" style="margin-top: 14px;">
+        <div class="speed-label">
+          <span>VOLUMEN</span>
+          <span id="vol-val">20</span>
+        </div>
+        <input type="range" id="vol-slider" min="0" max="30" value="20" />
+      </div>
+
+      <!-- IA -->
+      <div style="margin-top:16px">
+        <div class="card-header" style="margin-bottom:10px">
+          <span class="icon">🤖</span>
+          <h2>Respuestas IA</h2>
+        </div>
+        <div class="ia-buttons">
+          <button class="btn-ia" id="ia-a" disabled>
+            <span class="ia-icon">🏎️</span>
+            <div class="ia-text">
+              <span>Soy el Robot Ferrari 2do!</span>
+              <span class="ia-cmd">CMD: a</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-b" disabled>
+            <span class="ia-icon">👁️</span>
+            <div class="ia-text">
+              <span>Detecto obstáculos y me muevo</span>
+              <span class="ia-cmd">CMD: b</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-c" disabled>
+            <span class="ia-icon">❓</span>
+            <div class="ia-text">
+              <span>No entendí, preguntame otra cosa</span>
+              <span class="ia-cmd">CMD: c</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SENSORES -->
+    <div class="card sensors-card">
+      <div class="card-header">
+        <span class="icon">📡</span>
+        <h2>Sensores</h2>
+      </div>
+      <div class="sensor-grid">
+        <div class="sensor-item" id="sensor-dist">
+          <span class="sensor-icon">📏</span>
+          <span class="sensor-name">Ultrasonido</span>
+          <span class="sensor-value" id="dist-val">— cm</span>
+        </div>
+        <div class="sensor-item" id="sensor-pir">
+          <span class="sensor-icon">🧍</span>
+          <span class="sensor-name">PIR (Humano)</span>
+          <span class="sensor-value" id="pir-val">Libre</span>
+        </div>
+        <div class="sensor-item" id="sensor-tcrt">
+          <span class="sensor-icon">⚠️</span>
+          <span class="sensor-name">TCRT (Borde)</span>
+          <span class="sensor-value" id="tcrt-val">OK</span>
+        </div>
+        <div class="sensor-item" id="sensor-obs">
+          <span class="sensor-icon">🛑</span>
+          <span class="sensor-name">Obstáculo</span>
+          <span class="sensor-value" id="obs-val">Libre</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSOLA -->
+    <div class="card console-card" style="grid-column: 1 / -1;">
+      <div class="card-header console-toolbar">
+        <span class="icon">🖥️</span>
+        <h2>Consola</h2>
+        <button id="btn-clear" class="btn btn-ghost" style="padding:5px 12px;font-size:0.65rem">LIMPIAR</button>
+        <button id="btn-send-raw" class="btn btn-ghost" style="padding:5px 12px;font-size:0.65rem">ENVIAR</button>
+      </div>
+      <div id="console-output"></div>
+      <div class="console-input-wrap">
+        <input id="console-input" type="text" placeholder='Escribir comando (ej: F150) → Enter para enviar...' />
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+  <footer>ROBOT FERRARI 2do — Web Serial Controller v1.0 — Chrome/Edge Only</footer>
+
+</div><!-- /app-wrapper -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════════
+const state = {
+  port:        null,
+  writer:      null,
+  reader:      null,
+  connected:   false,
+  playing:     false,
+  trackActual: 1,
+  currentDir:  'S',
+  sendInterval: null,
+  joystickActive: false,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// VERIFICAR WEB SERIAL API
+// ═══════════════════════════════════════════════════════════════
+if (!('serial' in navigator)) {
+  document.getElementById('no-serial-overlay').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONSOLA
+// ═══════════════════════════════════════════════════════════════
+const consoleEl = document.getElementById('console-output');
+const MAX_LINES = 120;
+
+function logLine(msg, type = '') {
+  const time  = new Date().toLocaleTimeString('es-AR', { hour12: false });
+  const div   = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span class="log-time">[${time}]</span><span class="log-msg ${type}">${escHtml(msg)}</span>`;
+  consoleEl.appendChild(div);
+  // Límite de líneas
+  while (consoleEl.children.length > MAX_LINES) consoleEl.removeChild(consoleEl.firstChild);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+logLine('Sistema iniciado. Conectá el HC-05 para comenzar.', 'cyan');
+logLine('Usá Chrome o Edge con el Bluetooth emparejado como puerto COM.', '');
+
+// ═══════════════════════════════════════════════════════════════
+// SERIAL — CONEXIÓN
+// ═══════════════════════════════════════════════════════════════
+const btnConnect    = document.getElementById('btn-connect');
+const btnDisconnect = document.getElementById('btn-disconnect');
+const btStatus      = document.getElementById('bt-status');
+const btLabel       = document.getElementById('bt-label');
+
+function setStatus(s) {
+  btStatus.className = s;
+  const labels = { connected:'CONECTADO', connecting:'CONECTANDO...', disconnected:'DESCONECTADO' };
+  btLabel.textContent = labels[s] || s.toUpperCase();
+}
+
+btnConnect.addEventListener('click', async () => {
+  try {
+    setStatus('connecting');
+    logLine('Solicitando puerto serial...', 'gold');
+    const baud = parseInt(document.getElementById('baud-rate').value);
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: baud });
+    state.port      = port;
+    state.connected = true;
+
+    // Writer
+    state.writer = port.writable.getWriter();
+
+    // Reader — lectura continua
+    readLoop(port);
+
+    setStatus('connected');
+    logLine(`Puerto abierto a ${baud} baud. ¡Robot listo!`, 'ok');
+    enableControls(true);
+    btnConnect.disabled    = true;
+    btnDisconnect.disabled = false;
+  } catch (e) {
+    setStatus('disconnected');
+    logLine('Error al conectar: ' + e.message, 'warn');
+  }
+});
+
+btnDisconnect.addEventListener('click', async () => {
+  await disconnectSerial();
+});
+
+async function disconnectSerial() {
+  try {
+    state.connected = false;
+    enableControls(false);
+    stopJoystick();
+    if (state.reader) { try { await state.reader.cancel(); } catch {} }
+    if (state.writer) { try { state.writer.releaseLock(); } catch {} }
+    if (state.port)   { try { await state.port.close();   } catch {} }
+    state.port = state.writer = state.reader = null;
+    setStatus('disconnected');
+    logLine('Desconectado.', 'warn');
+    btnConnect.disabled    = false;
+    btnDisconnect.disabled = true;
+  } catch(e) {
+    logLine('Error al desconectar: ' + e.message, 'warn');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SERIAL — LEER DESDE ARDUINO
+// ═══════════════════════════════════════════════════════════════
+let rxBuffer = '';
+
+async function readLoop(port) {
+  try {
+    const decoder = new TextDecoderStream();
+    port.readable.pipeTo(decoder.writable);
+    state.reader = decoder.readable.getReader();
+
+    while (state.connected) {
+      const { value, done } = await state.reader.read();
+      if (done) break;
+      rxBuffer += value;
+      const lines = rxBuffer.split('\n');
+      rxBuffer = lines.pop(); // último fragmento incompleto
+      for (const line of lines) {
+        const l = line.trim();
+        if (!l) continue;
+        handleRxLine(l);
+      }
+    }
+  } catch (e) {
+    if (state.connected) logLine('Error de lectura: ' + e.message, 'warn');
+  }
+}
+
+function handleRxLine(line) {
+  // Clasificar tipo de mensaje
+  let type = '';
+  const l = line.toLowerCase();
+
+  if (l.includes('humano') || l.includes('pir'))             type = 'warn';
+  else if (l.includes('obstaculo') || l.includes('borde'))   type = 'warn';
+  else if (l.includes('ok') || l.includes('listo'))          type = 'ok';
+  else if (l.startsWith('track:'))                            type = 'gold';
+  else if (l.startsWith('ia:'))                               type = 'cyan';
+  else type = '';
+
+  logLine('← ' + line, type);
+
+  // Actualizar sensores
+  if (l.includes('humano')) setSensor('sensor-pir', 'pir-val', '¡Detectado!', true, false);
+  if (l.includes('borde'))  setSensor('sensor-tcrt', 'tcrt-val', '¡Borde!', true, false);
+  if (l.includes('obstaculo')) setSensor('sensor-obs', 'obs-val', '¡Obstáculo!', true, false);
+  if (l.startsWith('track:')) {
+    const n = parseInt(line.split(':')[1]);
+    if (!isNaN(n)) updateTrack(n);
+  }
+
+  // Reset sensores después de 3s
+  setTimeout(() => {
+    setSensor('sensor-pir',  'pir-val',  'Libre', false, false);
+    setSensor('sensor-tcrt', 'tcrt-val', 'OK',    false, false);
+    setSensor('sensor-obs',  'obs-val',  'Libre', false, false);
+  }, 3000);
+}
+
+function setSensor(cardId, valId, text, alert, alertCyan) {
+  const card = document.getElementById(cardId);
+  const val  = document.getElementById(valId);
+  if (!card || !val) return;
+  val.textContent = text;
+  card.classList.toggle('alert',      alert && !alertCyan);
+  card.classList.toggle('alert-cyan', alertCyan);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SERIAL — ENVIAR
+// ═══════════════════════════════════════════════════════════════
+async function sendCmd(cmd) {
+  if (!state.connected || !state.writer) return;
+  try {
+    const enc = new TextEncoder();
+    await state.writer.write(enc.encode(cmd + '\n'));
+  } catch(e) {
+    logLine('Error envío: ' + e.message, 'warn');
+  }
+}
+
+function sendAndLog(cmd, label) {
+  sendCmd(cmd);
+  logLine(`→ ${cmd}  (${label})`, 'send');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// JOYSTICK
+// ═══════════════════════════════════════════════════════════════
+const dirDisp = document.getElementById('dir-display');
+
+const DIR_LABELS = { F:'ADELANTE', B:'ATRÁS', L:'IZQUIERDA', R:'DERECHA', S:'STOP' };
+
+function updateDirection(dir) {
+  if (dir !== state.currentDir) {
+    state.currentDir = dir;
+    dirDisp.textContent = dir === 'S' ? '—' : dir;
+    dirDisp.title = DIR_LABELS[dir] || '';
+    if (state.connected) sendCmd(dir);
+  }
+}
+
+let stopTimeouts = [];
+
+// Enviar S varias veces con delay para garantizar que el Arduino lo reciba
+function sendStopReliable() {
+  if (!state.connected) return;
+  sendCmd('S');
+  stopTimeouts.push(setTimeout(() => sendCmd('S'), 80));
+  stopTimeouts.push(setTimeout(() => sendCmd('S'), 180));
+}
+
+function stopDpad() {
+  state.joystickActive = false;
+  clearInterval(state.sendInterval);
+  state.sendInterval = null;
+  state.currentDir = 'S';
+  dirDisp.textContent = '—';
+  sendStopReliable();
+}
+
+const dpadBtns = document.querySelectorAll('.dpad-btn');
+dpadBtns.forEach(btn => {
+  const dir = btn.getAttribute('data-dir');
+  
+  const startMove = (e) => {
+    e.preventDefault();
+    if (!state.connected) {
+      logLine('⚠ Conectá el robot primero.', 'warn');
+      return;
+    }
+    state.joystickActive = true;
+    updateDirection(dir);
+    btn.classList.add('active');
+    
+    // Limpiar frenos pendientes si apretamos rápido de nuevo
+    stopTimeouts.forEach(clearTimeout);
+    stopTimeouts = [];
+    
+    clearInterval(state.sendInterval);
+    state.sendInterval = setInterval(() => {
+      if (state.currentDir !== 'S') sendCmd(state.currentDir);
+    }, 50);
+  };
+
+  const endMove = (e) => {
+    e.preventDefault();
+    if (!state.joystickActive) return;
+    btn.classList.remove('active');
+    stopDpad();
+  };
+
+  btn.addEventListener('mousedown', startMove);
+  btn.addEventListener('touchstart', startMove, { passive: false });
+  btn.addEventListener('mouseup', endMove);
+  btn.addEventListener('mouseleave', endMove);
+  btn.addEventListener('touchend', endMove);
+  btn.addEventListener('touchcancel', endMove);
+});
+
+// Teclado (opcional)
+const KEY_MAP = { ArrowUp:'F', ArrowDown:'B', ArrowLeft:'L', ArrowRight:'R', ' ':'S', 'w':'F', 's':'B', 'a':'L', 'd':'R' };
+const pressedKeys = new Set();
+
+document.addEventListener('keydown', e => {
+  if (!state.connected) return;
+  if (document.activeElement === document.getElementById('console-input')) return;
+  const dir = KEY_MAP[e.key];
+  if (!dir || pressedKeys.has(e.key)) return;
+  pressedKeys.add(e.key);
+  
+  // Limpiar frenos pendientes
+  stopTimeouts.forEach(clearTimeout);
+  stopTimeouts = [];
+  
+  if (dir !== 'S') sendCmd(dir);
+  logLine(`→ Teclado: ${e.key} → ${dir}`, 'send');
+  dirDisp.textContent = dir === 'S' ? '—' : dir;
+  state.currentDir = dir;
+});
+
+document.addEventListener('keyup', e => {
+  if (!state.connected) return;
+  const dir = KEY_MAP[e.key];
+  if (!dir) return;
+  pressedKeys.delete(e.key);
+  // Si no queda ninguna tecla de dirección presionada → frenar
+  const stillMoving = [...pressedKeys].some(k => KEY_MAP[k] && KEY_MAP[k] !== 'S');
+  if (!stillMoving) {
+    dirDisp.textContent = '—';
+    state.currentDir = 'S';
+    sendStopReliable(); // enviar S 3 veces para garantizar que llegue
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// VELOCIDAD SLIDER
+// ═══════════════════════════════════════════════════════════════
+const speedSlider = document.getElementById('speed-slider');
+const speedVal    = document.getElementById('speed-val');
+
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = speedSlider.value;
+});
+
+speedSlider.addEventListener('change', () => {
+  const vel = speedSlider.value;
+  // Enviar velocidad con el comando actual (Arduino la parsea como "F150")
+  const baseCmd = (state.currentDir !== 'S') ? state.currentDir : 'F';
+  sendAndLog(baseCmd + vel, `Velocidad → ${vel}`);
+});
+
+const corrSlider = document.getElementById('corr-slider');
+const corrVal    = document.getElementById('corr-val');
+
+corrSlider.addEventListener('input', () => {
+  corrVal.textContent = corrSlider.value;
+});
+
+corrSlider.addEventListener('change', () => {
+  const corr = corrSlider.value;
+  sendAndLog('C' + corr, `Corrección → ${corr}`);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MODO LÍNEA
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('line-mode-toggle').addEventListener('change', e => {
+  const cmd = e.target.checked ? 'M' : 'N';
+  sendAndLog(cmd, e.target.checked ? 'Modo línea ON' : 'Modo línea OFF');
+});
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIO
+// ═══════════════════════════════════════════════════════════════
+let isPlaying = false;
+
+function updateTrack(n) {
+  state.trackActual = n;
+  document.getElementById('track-num-display').textContent = String(n).padStart(2, '0');
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (!isPlaying) {
+    sendAndLog('P', 'Play');
+    isPlaying = true;
+    document.getElementById('btn-play').textContent = '⏹';
+    document.getElementById('btn-play').title = 'Stop (X)';
+    document.getElementById('waveform').classList.add('playing');
+  } else {
+    sendAndLog('X', 'Stop');
+    isPlaying = false;
+    document.getElementById('btn-play').textContent = '▶';
+    document.getElementById('btn-play').title = 'Play (P)';
+    document.getElementById('waveform').classList.remove('playing');
+  }
+});
+
+document.getElementById('btn-prev').addEventListener('click', () => {
+  sendAndLog('V', 'Track anterior');
+  updateTrack(Math.max(1, state.trackActual - 1));
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  sendAndLog('W', 'Track siguiente');
+  updateTrack(state.trackActual + 1);
+});
+
+const volSlider = document.getElementById('vol-slider');
+const volVal    = document.getElementById('vol-val');
+
+volSlider.addEventListener('input', () => {
+  volVal.textContent = volSlider.value;
+});
+
+volSlider.addEventListener('change', () => {
+  const v = volSlider.value;
+  sendAndLog('U' + v, `Volumen → ${v}`);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// IA
+// ═══════════════════════════════════════════════════════════════
+['a','b','c'].forEach(code => {
+  document.getElementById('ia-' + code).addEventListener('click', () => {
+    sendAndLog(code, 'IA: ' + code);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CONSOLA MANUAL
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('btn-clear').addEventListener('click', () => {
+  consoleEl.innerHTML = '';
+  logLine('Consola limpiada.', 'cyan');
+});
+
+const consoleInput = document.getElementById('console-input');
+
+function sendRawInput() {
+  const val = consoleInput.value.trim();
+  if (!val) return;
+  sendAndLog(val, 'Manual');
+  consoleInput.value = '';
+}
+
+document.getElementById('btn-send-raw').addEventListener('click', sendRawInput);
+
+consoleInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendRawInput();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// HABILITAR / DESHABILITAR CONTROLES
+// ═══════════════════════════════════════════════════════════════
+function enableControls(en) {
+  ['btn-prev','btn-play','btn-next','ia-a','ia-b','ia-c'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !en;
+  });
+  if (!en && isPlaying) {
+    isPlaying = false;
+    document.getElementById('btn-play').textContent = '▶';
+    document.getElementById('waveform').classList.remove('playing');
+  }
+}
+
+// Mostrar hint en joystick si no conectado
+outer.addEventListener('mousedown', () => {
+  if (!state.connected) logLine('⚠ Conectá el robot primero.', 'warn');
+});
+outer.addEventListener('touchstart', () => {
+  if (!state.connected) logLine('⚠ Conectá el robot primero.', 'warn');
+}, { passive: true });
+
+</script>
+</body>
+</html>
