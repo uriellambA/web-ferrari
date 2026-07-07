@@ -456,6 +456,130 @@
     .toggle-switch input:checked + .toggle-slider::before { background: var(--ferrari-red); transform: translateX(20px); box-shadow: var(--shadow-red); }
 
     /* ═══════════════════════════════════════════
+       PANEL SERVO
+    ═══════════════════════════════════════════ */
+    .servo-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      background: rgba(0,0,0,0.3);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+
+    .servo-gauge {
+      position: relative;
+      width: 160px;
+      height: 90px;
+      overflow: hidden;
+    }
+
+    .servo-arc {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: 4px solid transparent;
+      border-top: 4px solid var(--ferrari-red);
+      border-right: 4px solid var(--ferrari-red);
+      transform: rotate(-45deg);
+      box-shadow: 0 0 15px rgba(232,0,45,0.2);
+    }
+
+    .servo-needle {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 3px;
+      height: 70px;
+      background: linear-gradient(to top, var(--accent-gold), transparent);
+      transform-origin: bottom center;
+      transform: translateX(-50%) rotate(0deg);
+      transition: transform 0.4s ease;
+      border-radius: 2px;
+      box-shadow: 0 0 8px rgba(255,215,0,0.5);
+    }
+
+    .servo-needle::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      background: var(--accent-gold);
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(255,215,0,0.6);
+    }
+
+    .servo-angle-display {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--accent-gold);
+      text-shadow: 0 0 20px rgba(255,215,0,0.4);
+      margin-top: 6px;
+    }
+
+    .servo-angle-label {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+    }
+
+    .servo-presets {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-servo-preset {
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: rgba(255,215,0,0.08);
+      border: 1px solid rgba(255,215,0,0.3);
+      color: var(--accent-gold);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-servo-preset:hover { background: rgba(255,215,0,0.18); box-shadow: 0 0 12px rgba(255,215,0,0.3); }
+    .btn-servo-preset.active { background: rgba(255,215,0,0.25); border-color: var(--accent-gold); box-shadow: 0 0 15px rgba(255,215,0,0.4); }
+    .btn-servo-preset:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .btn-scan {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,150,200,0.15));
+      border: 1px solid rgba(0,212,255,0.4);
+      color: var(--accent-cyan);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-scan:hover { box-shadow: var(--shadow-cyan); background: rgba(0,212,255,0.22); }
+    .btn-scan:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-scan.scanning {
+      animation: scan-pulse 1s ease-in-out infinite;
+    }
+    @keyframes scan-pulse { 0%,100%{ box-shadow: var(--shadow-cyan); } 50%{ box-shadow: 0 0 30px rgba(0,212,255,0.6); } }
+
+    /* ═══════════════════════════════════════════
        PANEL AUDIO
     ═══════════════════════════════════════════ */
     .audio-card { grid-row: 1; }
@@ -549,6 +673,14 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+    }
+
+    .sensor-grid.five-items {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    @media (max-width: 500px) {
+      .sensor-grid.five-items { grid-template-columns: 1fr 1fr; }
     }
 
     .sensor-item {
@@ -824,8 +956,43 @@
           <input type="checkbox" id="line-mode-toggle" />
           <span class="toggle-slider"></span>
         </label>
-        <span>Modo línea (TCRT)</span>
+        <span>Modo línea (2× TCRT)</span>
       </div>
+    </div>
+
+    <!-- SERVO -->
+    <div class="card" id="servo-card">
+      <div class="card-header">
+        <span class="icon">🔧</span>
+        <h2>Servo Motor</h2>
+      </div>
+
+      <div class="servo-visual">
+        <div class="servo-gauge">
+          <div class="servo-arc"></div>
+          <div class="servo-needle" id="servo-needle"></div>
+        </div>
+        <div class="servo-angle-display" id="servo-angle-display">90°</div>
+        <div class="servo-angle-label">ÁNGULO ACTUAL</div>
+      </div>
+
+      <div class="speed-wrap">
+        <div class="speed-label">
+          <span>ÁNGULO SERVO</span>
+          <span id="servo-slider-val">90</span>
+        </div>
+        <input type="range" id="servo-slider" min="0" max="180" value="90" />
+      </div>
+
+      <div class="servo-presets">
+        <button class="btn-servo-preset" data-angle="0" disabled>0°</button>
+        <button class="btn-servo-preset" data-angle="45" disabled>45°</button>
+        <button class="btn-servo-preset active" data-angle="90" disabled>90°</button>
+        <button class="btn-servo-preset" data-angle="135" disabled>135°</button>
+        <button class="btn-servo-preset" data-angle="180" disabled>180°</button>
+      </div>
+
+      <button class="btn-scan" id="btn-scan" disabled>📡 ESCANEAR ENTORNO</button>
     </div>
 
     <!-- AUDIO -->
@@ -889,6 +1056,48 @@
               <span class="ia-cmd">CMD: c</span>
             </div>
           </button>
+          <button class="btn-ia" id="ia-e" disabled>
+            <span class="ia-icon">📢</span>
+            <div class="ia-text">
+              <span>¡PERMISO!</span>
+              <span class="ia-cmd">CMD: e</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-1" disabled>
+            <span class="ia-icon">👦</span>
+            <div class="ia-text">
+              <span>Exacto Santiago!</span>
+              <span class="ia-cmd">CMD: 1</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-2" disabled>
+            <span class="ia-icon">👦</span>
+            <div class="ia-text">
+              <span>Exacto Pedro!</span>
+              <span class="ia-cmd">CMD: 2</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-3" disabled>
+            <span class="ia-icon">👦</span>
+            <div class="ia-text">
+              <span>Exacto Salvador!</span>
+              <span class="ia-cmd">CMD: 3</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-4" disabled>
+            <span class="ia-icon">👦</span>
+            <div class="ia-text">
+              <span>Exacto Uriel!</span>
+              <span class="ia-cmd">CMD: 4</span>
+            </div>
+          </button>
+          <button class="btn-ia" id="ia-5" disabled>
+            <span class="ia-icon">🔩</span>
+            <div class="ia-text">
+              <span>Arduino Mega + L298N</span>
+              <span class="ia-cmd">CMD: 5</span>
+            </div>
+          </button>
         </div>
       </div>
     </div>
@@ -899,7 +1108,7 @@
         <span class="icon">📡</span>
         <h2>Sensores</h2>
       </div>
-      <div class="sensor-grid">
+      <div class="sensor-grid five-items">
         <div class="sensor-item" id="sensor-dist">
           <span class="sensor-icon">📏</span>
           <span class="sensor-name">Ultrasonido</span>
@@ -910,15 +1119,25 @@
           <span class="sensor-name">PIR (Humano)</span>
           <span class="sensor-value" id="pir-val">Libre</span>
         </div>
-        <div class="sensor-item" id="sensor-tcrt">
-          <span class="sensor-icon">⚠️</span>
-          <span class="sensor-name">TCRT (Borde)</span>
-          <span class="sensor-value" id="tcrt-val">OK</span>
-        </div>
         <div class="sensor-item" id="sensor-obs">
           <span class="sensor-icon">🛑</span>
           <span class="sensor-name">Obstáculo</span>
           <span class="sensor-value" id="obs-val">Libre</span>
+        </div>
+        <div class="sensor-item" id="sensor-tcrt-izq">
+          <span class="sensor-icon">◀️</span>
+          <span class="sensor-name">TCRT Izquierdo</span>
+          <span class="sensor-value" id="tcrt-izq-val">OK</span>
+        </div>
+        <div class="sensor-item" id="sensor-tcrt-der">
+          <span class="sensor-icon">▶️</span>
+          <span class="sensor-name">TCRT Derecho</span>
+          <span class="sensor-value" id="tcrt-der-val">OK</span>
+        </div>
+        <div class="sensor-item" id="sensor-servo">
+          <span class="sensor-icon">🔧</span>
+          <span class="sensor-name">Servo</span>
+          <span class="sensor-value" id="servo-val">90°</span>
         </div>
       </div>
     </div>
@@ -939,7 +1158,7 @@
 
   </div><!-- /main-grid -->
 
-  <footer>ROBOT FERRARI 2do — Web Serial Controller v1.0 — Chrome/Edge Only</footer>
+  <footer>ROBOT FERRARI 2do — Web Serial Controller v2.0 — Chrome/Edge Only</footer>
 
 </div><!-- /app-wrapper -->
 
@@ -1091,24 +1310,66 @@ function handleRxLine(line) {
   else if (l.includes('ok') || l.includes('listo'))          type = 'ok';
   else if (l.startsWith('track:'))                            type = 'gold';
   else if (l.startsWith('ia:'))                               type = 'cyan';
+  else if (l.startsWith('servo:') || l.startsWith('scan:'))  type = 'gold';
+  else if (l.startsWith('tcrt:'))                             type = 'cyan';
   else type = '';
 
   logLine('← ' + line, type);
 
   // Actualizar sensores
   if (l.includes('humano')) setSensor('sensor-pir', 'pir-val', '¡Detectado!', true, false);
-  if (l.includes('borde'))  setSensor('sensor-tcrt', 'tcrt-val', '¡Borde!', true, false);
   if (l.includes('obstaculo')) setSensor('sensor-obs', 'obs-val', '¡Obstáculo!', true, false);
+
+  // TCRT con 2 sensores: "TCRT: IZQ=1 DER=0"
+  if (l.startsWith('tcrt:')) {
+    const izqMatch = l.match(/izq=(\d)/);
+    const derMatch = l.match(/der=(\d)/);
+    if (izqMatch) {
+      const enLinea = izqMatch[1] === '1';
+      setSensor('sensor-tcrt-izq', 'tcrt-izq-val', enLinea ? '■ Línea' : 'OK', enLinea, enLinea);
+    }
+    if (derMatch) {
+      const enLinea = derMatch[1] === '1';
+      setSensor('sensor-tcrt-der', 'tcrt-der-val', enLinea ? '■ Línea' : 'OK', enLinea, enLinea);
+    }
+  }
+
+  // Track update
   if (l.startsWith('track:')) {
     const n = parseInt(line.split(':')[1]);
     if (!isNaN(n)) updateTrack(n);
   }
 
+  // Servo angle update: "Servo: 90"
+  if (l.startsWith('servo:')) {
+    const ang = parseInt(line.split(':')[1]);
+    if (!isNaN(ang)) updateServoDisplay(ang);
+  }
+
+  // Scan result: "SCAN:120"
+  if (l.startsWith('scan:')) {
+    const ang = parseInt(line.split(':')[1]);
+    if (!isNaN(ang)) {
+      updateServoDisplay(ang);
+      logLine(`📡 Barrido completo: mejor ángulo = ${ang}°`, 'ok');
+      const scanBtn = document.getElementById('btn-scan');
+      scanBtn.classList.remove('scanning');
+      scanBtn.textContent = '📡 ESCANEAR ENTORNO';
+    }
+  }
+
+  // Línea frenado
+  if (l.includes('linea') && l.includes('frenado')) {
+    setSensor('sensor-tcrt-izq', 'tcrt-izq-val', '⚠ Frenado', true, false);
+    setSensor('sensor-tcrt-der', 'tcrt-der-val', '⚠ Frenado', true, false);
+  }
+
   // Reset sensores después de 3s
   setTimeout(() => {
-    setSensor('sensor-pir',  'pir-val',  'Libre', false, false);
-    setSensor('sensor-tcrt', 'tcrt-val', 'OK',    false, false);
-    setSensor('sensor-obs',  'obs-val',  'Libre', false, false);
+    setSensor('sensor-pir',      'pir-val',      'Libre', false, false);
+    setSensor('sensor-tcrt-izq', 'tcrt-izq-val', 'OK',    false, false);
+    setSensor('sensor-tcrt-der', 'tcrt-der-val', 'OK',    false, false);
+    setSensor('sensor-obs',      'obs-val',      'Libre', false, false);
   }, 3000);
 }
 
@@ -1336,10 +1597,61 @@ volSlider.addEventListener('change', () => {
 // ═══════════════════════════════════════════════════════════════
 // IA
 // ═══════════════════════════════════════════════════════════════
-['a','b','c'].forEach(code => {
-  document.getElementById('ia-' + code).addEventListener('click', () => {
+['a','b','c','e','1','2','3','4','5'].forEach(code => {
+  const el = document.getElementById('ia-' + code);
+  if (el) el.addEventListener('click', () => {
     sendAndLog(code, 'IA: ' + code);
   });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SERVO
+// ═══════════════════════════════════════════════════════════════
+const servoSlider     = document.getElementById('servo-slider');
+const servoSliderVal  = document.getElementById('servo-slider-val');
+const servoNeedle     = document.getElementById('servo-needle');
+const servoAngleDisp  = document.getElementById('servo-angle-display');
+const servoSensorVal  = document.getElementById('servo-val');
+
+function updateServoDisplay(angle) {
+  // Needle: 0° = -90deg (left), 90° = 0deg (center), 180° = +90deg (right)
+  const rotation = (angle - 90);
+  servoNeedle.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+  servoAngleDisp.textContent = angle + '°';
+  servoSlider.value = angle;
+  servoSliderVal.textContent = angle;
+  if (servoSensorVal) servoSensorVal.textContent = angle + '°';
+
+  // Update preset buttons
+  document.querySelectorAll('.btn-servo-preset').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.angle) === angle);
+  });
+}
+
+servoSlider.addEventListener('input', () => {
+  servoSliderVal.textContent = servoSlider.value;
+  updateServoDisplay(parseInt(servoSlider.value));
+});
+
+servoSlider.addEventListener('change', () => {
+  const ang = servoSlider.value;
+  sendAndLog('H' + ang, `Servo → ${ang}°`);
+});
+
+document.querySelectorAll('.btn-servo-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const ang = btn.dataset.angle;
+    updateServoDisplay(parseInt(ang));
+    sendAndLog('H' + ang, `Servo preset → ${ang}°`);
+  });
+});
+
+document.getElementById('btn-scan').addEventListener('click', () => {
+  const scanBtn = document.getElementById('btn-scan');
+  scanBtn.classList.add('scanning');
+  scanBtn.textContent = '📡 ESCANEANDO...';
+  sendAndLog('G', 'Barrido servo');
+  logLine('Iniciando barrido de servo...', 'cyan');
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -1369,24 +1681,18 @@ consoleInput.addEventListener('keydown', e => {
 // HABILITAR / DESHABILITAR CONTROLES
 // ═══════════════════════════════════════════════════════════════
 function enableControls(en) {
-  ['btn-prev','btn-play','btn-next','ia-a','ia-b','ia-c'].forEach(id => {
+  ['btn-prev','btn-play','btn-next','ia-a','ia-b','ia-c','ia-e','ia-1','ia-2','ia-3','ia-4','ia-5','btn-scan'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !en;
   });
+  // Servo presets
+  document.querySelectorAll('.btn-servo-preset').forEach(b => b.disabled = !en);
   if (!en && isPlaying) {
     isPlaying = false;
     document.getElementById('btn-play').textContent = '▶';
     document.getElementById('waveform').classList.remove('playing');
   }
 }
-
-// Mostrar hint en joystick si no conectado
-outer.addEventListener('mousedown', () => {
-  if (!state.connected) logLine('⚠ Conectá el robot primero.', 'warn');
-});
-outer.addEventListener('touchstart', () => {
-  if (!state.connected) logLine('⚠ Conectá el robot primero.', 'warn');
-}, { passive: true });
 
 </script>
 </body>
